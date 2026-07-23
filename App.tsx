@@ -17,8 +17,7 @@ export default function App() {
   useEffect(() => {
     async function checkConnection() {
       try {
-        const { error } = await supabase.from('_test_connection').select('*').limit(1);
-        // Even if table doesn't exist, if error is PGRST116 or relation missing, connection is alive
+        await supabase.from('_test_connection').select('*').limit(1);
         setDbStatus('Connected to Supabase Successfully! 🚀');
       } catch (err) {
         setDbStatus('Connected to Supabase (Secure Mode)');
@@ -29,22 +28,46 @@ export default function App() {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
-    const userMessage = { role: 'user', content: input };
+    const userMessageText = input;
+    const userMessage = { role: 'user', content: userMessageText };
+    
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setLoading(true);
 
-    // Simulate AI response for now, fully integrated with Supabase architecture
-    setTimeout(() => {
+    try {
+      // Call our backend server endpoint which uses real Gemini API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessageText }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get response from AI');
+      }
+
       const aiMessage = { 
         role: 'assistant', 
-        content: `Namaste! Main Sudha AI hoon. Aapka message mil gaya hai, aur humara system ab Firebase se puri tarah free hokar Supabase par shift ho chuka hai. Aapne pucha: "${userMessage.content}"` 
+        content: data.reply 
       };
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (error: any) {
+      console.error('Chat error:', error);
+      const errorMessage = { 
+        role: 'assistant', 
+        content: `Error: ${error.message || 'Kuch gadbad ho gayi, kripya dobara koshish karein.'}` 
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -70,7 +93,7 @@ export default function App() {
           {messages.length === 0 ? (
             <div className="text-center py-20 text-slate-500">
               <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p className="text-lg font-medium">Aapka project ab puri tarah tayar hai!</p>
+              <p className="text-lg font-medium">Aapka project ab real Gemini AI ke sath tayar hai!</p>
               <p className="text-sm">Neeche message type karke baat shuru karein.</p>
             </div>
           ) : (
@@ -121,5 +144,5 @@ export default function App() {
       </main>
     </div>
   );
-}
+        }
 
